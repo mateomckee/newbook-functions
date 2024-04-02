@@ -9,7 +9,7 @@ const pool = new Pool({
 });
 
 //set up CORS options
-const allowedOrigins = ['https://bluebook-2.vercel.app', 'https://bluebook-2.vercel.app/*', 'http://localhost:4200'];
+const allowedOrigins = ['https://newbook-1.vercel.app', 'https://newbook-acmutsa.vercel.app', 'http://localhost:4200'];
 
 function corsMiddleware(req, res, next) {
   const origin = req.headers.origin;
