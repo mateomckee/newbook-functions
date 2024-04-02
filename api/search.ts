@@ -38,7 +38,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     //connect to the PostgreSQL database
     const client = await pool.connect();
 
-    //write SQL query
+    //build query
     const sqlQuery = buildQuery(tokens);
 
     //execute the query
@@ -62,23 +62,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 }
 
 function buildQuery(tokens: string[]): string {
-  var mainSQLCommand = "SELECT * FROM courses WHERE ";
+  //preprocess tokens: convert to lowercase and apply stemming
+  const processedTokens = tokens.map(token => token.toLowerCase()).join(' & ');
 
-  for (let i = 0; i < tokens.length; i++) {
-    const token = tokens[i];
-
-    let sql: string;
-    if (!isNaN(token as any)) {
-      sql = `(crn LIKE '%${token}%' or courselabel ILIKE '%${token}%')`;
-    } else {
-      sql = `(courselabel ILIKE '${token}%' or instructor ILIKE '%${token}%' or coursetitle ILIKE '%${token}%')`;
-    }
-
-    mainSQLCommand = mainSQLCommand.concat(sql);
-
-    if (i < tokens.length - 1) {
-      mainSQLCommand = mainSQLCommand.concat(" AND ");
-    }
-  }
-  return mainSQLCommand;
+  return `
+    SELECT *, ts_rank(to_tsvector('english', courselabel || ' ' || instructor || ' ' || coursetitle || ' ' || semester), to_tsquery('english', '${processedTokens}')) as rank
+    FROM courses
+    WHERE to_tsvector('english', courselabel || ' ' || instructor || ' ' || coursetitle || ' ' || semester) @@ to_tsquery('english', '${processedTokens}')
+    ORDER BY rank DESC
+  `;
 }
