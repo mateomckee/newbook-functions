@@ -18,6 +18,10 @@ function corsMiddleware(req, res, next) {
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     try {
+      //verify with CORS middleware
+      await corsMiddleware(req, res, () => { });
+
+
       return res.status(200).json({ message: "Hello, World!" });
 
       return res.json({
