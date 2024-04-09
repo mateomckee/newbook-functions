@@ -4,7 +4,7 @@ import { Pool } from 'pg';
 const pool = new Pool({
   connectionString: process.env.POSTGRES_URL,
   ssl: {
-    rejectUnauthorized: true
+    rejectUnauthorized: false //only for development, remove for production
   }
 });
 
@@ -27,19 +27,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     await corsMiddleware(req, res, () => { });
 
     //if input is empty, return
-    if (req.query.q == "") {
+    if (req.query.q == "" || !req.query.q) {
       console.error('Error executing query: No input');
       return res.status(400).json({ error: 'No input' });
     }
 
     //get user-provided search tokens
-    const tokens = (req.query.q as string).split(" ");
+    const token = (req.query.q as string);
 
-    //connect to the PostgreSQL database
     const client = await pool.connect();
 
     //build query
-    const sqlQuery = buildQuery(tokens);
+    const sqlQuery = `SELECT * FROM documents WHERE document_name = \'${token}\'`;
 
     //execute the query
     const result = await client.query(sqlQuery);
@@ -52,23 +51,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     //return the JSON response
     return res.json({
-      userInput: tokens,
-      data: data,
+      userInput: token,
+      data: data
     });
   } catch (error) {
     console.error('Error executing query:', error);
     return res.status(500).json({ error: 'Internal Server Error' });
   }
-}
-
-function buildQuery(tokens: string[]): string {
-  //preprocess tokens: convert to lowercase and apply stemming
-  const processedTokens = tokens.map(token => token.toLowerCase()).join(' & ');
-
-  return `
-    SELECT *, ts_rank(to_tsvector('english', courselabel || ' ' || instructor || ' ' || coursetitle || ' ' || semester), to_tsquery('english', '${processedTokens}')) as rank
-    FROM courses
-    WHERE to_tsvector('english', courselabel || ' ' || instructor || ' ' || coursetitle || ' ' || semester) @@ to_tsquery('english', '${processedTokens}')
-    ORDER BY rank DESC
-  `;
 }
